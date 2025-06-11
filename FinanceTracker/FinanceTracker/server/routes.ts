@@ -384,6 +384,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stock routes
+  app.get("/api/stocks", async (_req, res) => {
+    try {
+      const stocks = await storage.getStocks();
+      res.json(stocks);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch stocks" });
+    }
+  });
+
+  app.get("/api/stocks/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid stock id" });
+      }
+      const stock = await storage.getStock(id);
+      if (!stock) {
+        return res.status(404).json({ message: "Stock not found" });
+      }
+      res.json(stock);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch stock" });
+    }
+  });
+
+  app.get("/api/stocks/account/:accountId", async (req, res) => {
+    try {
+      const accountId = parseInt(req.params.accountId);
+      if (Number.isNaN(accountId)) {
+        return res.status(400).json({ message: "Invalid account id" });
+      }
+      const stocks = await storage.getStocksByAccount(accountId);
+      res.json(stocks);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch account stocks" });
+    }
+  });
+
+  app.post("/api/stocks", async (req, res) => {
+    try {
+      const stockData = insertStockSchema.parse(req.body);
+      const stock = await storage.createStock(stockData);
+      res.status(201).json(stock);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid stock data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create stock" });
+    }
+  });
+
+  app.put("/api/stocks/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid stock id" });
+      }
+      const updateData = insertStockSchema.partial().parse(req.body);
+      const stock = await storage.updateStock(id, updateData);
+      if (!stock) {
+        return res.status(404).json({ message: "Stock not found" });
+      }
+      res.json(stock);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid stock data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update stock" });
+    }
+  });
+
+  app.delete("/api/stocks/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid stock id" });
+      }
+      const deleted = await storage.deleteStock(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Stock not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete stock" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
