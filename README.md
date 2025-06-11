@@ -1,6 +1,6 @@
 # Finance Tracker
 
-This project lives inside a nested directory: `FinanceTracker/FinanceTracker`. All commands should be run from that folder.
+The project files now live in the `FinanceTracker` directory. Run all commands from that folder.
 
 ## Prerequisites
 
@@ -9,10 +9,10 @@ This project lives inside a nested directory: `FinanceTracker/FinanceTracker`. A
 
 ## Install Dependencies
 
-Navigate to the nested directory and install packages:
+Navigate to the project directory and install packages:
 
 ```bash
-cd FinanceTracker/FinanceTracker
+cd FinanceTracker
 npm install
 ```
 
