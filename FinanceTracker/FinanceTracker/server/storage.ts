@@ -413,7 +413,14 @@ export class MemStorage implements IStorage {
 
   async createAccount(insertAccount: InsertAccount): Promise<Account> {
     const id = this.currentAccountId++;
-    const account: Account = { ...insertAccount, id };
+    const account: Account = {
+      id,
+      name: insertAccount.name,
+      type: insertAccount.type,
+      balance: insertAccount.balance ?? "0",
+      color: insertAccount.color ?? "#2563EB",
+      isActive: insertAccount.isActive ?? true,
+    };
     this.accounts.set(id, account);
     return account;
   }
