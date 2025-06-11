@@ -18,6 +18,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/accounts/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid account id" });
+      }
       const account = await storage.getAccount(id);
       if (!account) {
         return res.status(404).json({ message: "Account not found" });
@@ -44,6 +47,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/accounts/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid account id" });
+      }
       const updateData = insertAccountSchema.partial().parse(req.body);
       const account = await storage.updateAccount(id, updateData);
       if (!account) {
@@ -61,6 +67,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/accounts/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid account id" });
+      }
       const deleted = await storage.deleteAccount(id);
       if (!deleted) {
         return res.status(404).json({ message: "Account not found" });
@@ -97,6 +106,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/categories/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category id" });
+      }
       const updateData = insertCategorySchema.partial().parse(req.body);
       const category = await storage.updateCategory(id, updateData);
       if (!category) {
@@ -114,6 +126,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/categories/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category id" });
+      }
       const deleted = await storage.deleteCategory(id);
       if (!deleted) {
         return res.status(404).json({ message: "Category not found" });
@@ -137,6 +152,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/transactions/account/:accountId", async (req, res) => {
     try {
       const accountId = parseInt(req.params.accountId);
+      if (Number.isNaN(accountId)) {
+        return res.status(400).json({ message: "Invalid account id" });
+      }
       const transactions = await storage.getTransactionsByAccount(accountId);
       res.json(transactions);
     } catch (error) {
@@ -160,6 +178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/transactions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid transaction id" });
+      }
       const updateData = insertTransactionSchema.partial().parse(req.body);
       const transaction = await storage.updateTransaction(id, updateData);
       if (!transaction) {
@@ -177,6 +198,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/transactions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid transaction id" });
+      }
       const deleted = await storage.deleteTransaction(id);
       if (!deleted) {
         return res.status(404).json({ message: "Transaction not found" });
@@ -213,6 +237,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/goals/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid goal id" });
+      }
       const updateData = insertGoalSchema.partial().parse(req.body);
       const goal = await storage.updateGoal(id, updateData);
       if (!goal) {
@@ -230,6 +257,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/goals/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid goal id" });
+      }
       const deleted = await storage.deleteGoal(id);
       if (!deleted) {
         return res.status(404).json({ message: "Goal not found" });
@@ -253,6 +283,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/budgets/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid budget id" });
+      }
       const budget = await storage.getBudget(id);
       if (!budget) {
         return res.status(404).json({ message: "Budget not found" });
@@ -266,6 +299,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/budgets/account/:accountId", async (req, res) => {
     try {
       const accountId = parseInt(req.params.accountId);
+      if (Number.isNaN(accountId)) {
+        return res.status(400).json({ message: "Invalid account id" });
+      }
       const budgets = await storage.getBudgetsByAccount(accountId);
       res.json(budgets);
     } catch (error) {
@@ -276,6 +312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/budgets/category/:categoryId", async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);
+      if (Number.isNaN(categoryId)) {
+        return res.status(400).json({ message: "Invalid category id" });
+      }
       const budgets = await storage.getBudgetsByCategory(categoryId);
       res.json(budgets);
     } catch (error) {
@@ -299,6 +338,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/budgets/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid budget id" });
+      }
       const updateData = insertBudgetSchema.partial().parse(req.body);
       const budget = await storage.updateBudget(id, updateData);
       if (!budget) {
@@ -316,6 +358,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/budgets/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid budget id" });
+      }
       const deleted = await storage.deleteBudget(id);
       if (!deleted) {
         return res.status(404).json({ message: "Budget not found" });
@@ -329,6 +374,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/budgets/:id/spending", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid budget id" });
+      }
       const spending = await storage.getBudgetSpending(id);
       res.json({ budgetId: id, spending });
     } catch (error) {
