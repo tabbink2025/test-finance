@@ -1,11 +1,11 @@
-import { 
-  accounts, 
-  categories, 
-  transactions, 
+import {
+  accounts,
+  categories,
+  transactions,
   goals,
   budgets,
   stocks,
-  type Account, 
+  type Account,
   type InsertAccount,
   type Category,
   type InsertCategory,
@@ -18,6 +18,7 @@ import {
   type Stock,
   type InsertStock
 } from "@shared/schema";
+import { PgStorage } from "./pg-storage";
 
 export interface IStorage {
   // Accounts
@@ -758,4 +759,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = process.env.DATABASE_URL ? new PgStorage() : new MemStorage();

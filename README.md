@@ -45,3 +45,13 @@ npm start
 - `npm run check` – run TypeScript type checks.
 - `npm run db:push` – push database migrations with Drizzle.
 
+## Database Setup
+
+Create a `.env` file inside `FinanceTracker` with a `DATABASE_URL` pointing to your PostgreSQL instance, for example:
+
+```
+DATABASE_URL=postgresql://postgres:test@localhost:5432/mydb
+```
+
+Run `npm run db:push` to apply the schema migrations to the database before starting the server.
+
