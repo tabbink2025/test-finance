@@ -669,6 +669,7 @@ export class MemStorage implements IStorage {
     const id = this.currentStockId++;
     const stock: Stock = {
       ...insertStock,
+      notes: insertStock.notes ?? null,
       id,
       createdAt: new Date(),
       updatedAt: new Date()
