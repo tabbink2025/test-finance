@@ -9,9 +9,10 @@ import {
   CreditCard, 
   ArrowLeftRight, 
   Tag, 
-  Target, 
-  PiggyBank, 
-  BarChart3 
+  Target,
+  CandlestickChart,
+  PiggyBank,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const navigation = [
   { name: "Transactions", href: "/transactions", icon: ArrowLeftRight },
   { name: "Categories", href: "/categories", icon: Tag },
   { name: "Goals", href: "/goals", icon: Target },
+  { name: "Stocks", href: "/stocks", icon: CandlestickChart },
   { name: "Budgets", href: "/budgets", icon: PiggyBank },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];

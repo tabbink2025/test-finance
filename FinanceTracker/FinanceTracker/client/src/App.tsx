@@ -10,6 +10,7 @@ import Transactions from "@/pages/Transactions";
 import Categories from "@/pages/Categories";
 import Goals from "@/pages/Goals";
 import Budgets from "@/pages/Budgets";
+import Stocks from "@/pages/Stocks";
 import Reports from "@/pages/Reports";
 import NotFound from "@/pages/not-found";
 
@@ -22,6 +23,7 @@ function Router() {
         <Route path="/transactions" component={Transactions} />
         <Route path="/categories" component={Categories} />
         <Route path="/goals" component={Goals} />
+        <Route path="/stocks" component={Stocks} />
         <Route path="/budgets" component={Budgets} />
         <Route path="/reports" component={Reports} />
         <Route component={NotFound} />
