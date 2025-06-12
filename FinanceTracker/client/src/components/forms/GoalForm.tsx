@@ -141,7 +141,7 @@ export default function GoalForm({ goal, onSubmit, onCancel }: GoalFormProps) {
               <FormItem>
                 <FormLabel>Deadline (Optional)</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" {...field} value={field.value || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -156,7 +156,7 @@ export default function GoalForm({ goal, onSubmit, onCancel }: GoalFormProps) {
             <FormItem>
               <FormLabel>Description (Optional)</FormLabel>
               <FormControl>
-                <Textarea placeholder="Goal description..." {...field} />
+                <Textarea placeholder="Goal description..." {...field} value={field.value || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>

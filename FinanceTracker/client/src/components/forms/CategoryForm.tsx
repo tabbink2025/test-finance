@@ -22,11 +22,19 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import type { Category } from "@shared/schema";
 
-type CategoryFormData = z.infer<typeof insertCategorySchema>;
+// Create a form-specific schema with string types for form fields
+const categoryFormSchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  type: z.string().min(1, "Type is required"),
+  color: z.string().min(1, "Color is required"),
+  parentId: z.string().optional(),
+});
+
+type CategoryFormData = z.infer<typeof categoryFormSchema>;
 
 interface CategoryFormProps {
   category?: Category;
-  onSubmit: (data: CategoryFormData) => void;
+  onSubmit: (data: z.infer<typeof insertCategorySchema>) => void;
   onCancel: () => void;
 }
 
@@ -47,19 +55,21 @@ export default function CategoryForm({ category, onSubmit, onCancel }: CategoryF
   });
 
   const form = useForm<CategoryFormData>({
-    resolver: zodResolver(insertCategorySchema),
+    resolver: zodResolver(categoryFormSchema),
     defaultValues: {
       name: category?.name || "",
       type: category?.type || "expense",
       color: category?.color || "#059669",
-      parentId: category?.parentId || undefined,
+      parentId: category?.parentId?.toString() || "",
     },
   });
 
   const handleSubmit = (data: CategoryFormData) => {
     onSubmit({
-      ...data,
-      parentId: data.parentId ? Number(data.parentId) : undefined,
+      name: data.name,
+      type: data.type,
+      color: data.color,
+      parentId: data.parentId && data.parentId !== "" ? Number(data.parentId) : null,
     });
   };
 
@@ -143,7 +153,7 @@ export default function CategoryForm({ category, onSubmit, onCancel }: CategoryF
           render={({ field }) => (
             <FormItem>
               <FormLabel>Parent Category (Optional)</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select parent category" />

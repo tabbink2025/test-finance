@@ -450,7 +450,12 @@ export class MemStorage implements IStorage {
 
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
     const id = this.currentCategoryId++;
-    const category: Category = { ...insertCategory, id };
+    const category: Category = { 
+      ...insertCategory, 
+      id,
+      color: insertCategory.color ?? "#059669",
+      parentId: insertCategory.parentId ?? null,
+    };
     this.categories.set(id, category);
     return category;
   }
@@ -490,6 +495,8 @@ export class MemStorage implements IStorage {
     const transaction: Transaction = {
       ...insertTransaction,
       id,
+      categoryId: insertTransaction.categoryId ?? null,
+      notes: insertTransaction.notes ?? null,
       createdAt: new Date()
     };
     this.transactions.set(id, transaction);
@@ -558,7 +565,14 @@ export class MemStorage implements IStorage {
 
   async createGoal(insertGoal: InsertGoal): Promise<Goal> {
     const id = this.currentGoalId++;
-    const goal: Goal = { ...insertGoal, id };
+    const goal: Goal = { 
+      ...insertGoal, 
+      id,
+      description: insertGoal.description ?? null,
+      currentAmount: insertGoal.currentAmount ?? "0",
+      deadline: insertGoal.deadline ?? null,
+      isCompleted: insertGoal.isCompleted ?? false,
+    };
     this.goals.set(id, goal);
     return goal;
   }
@@ -598,6 +612,12 @@ export class MemStorage implements IStorage {
     const budget: Budget = { 
       ...insertBudget, 
       id,
+      description: insertBudget.description ?? null,
+      isActive: insertBudget.isActive ?? true,
+      accountId: insertBudget.accountId ?? null,
+      categoryId: insertBudget.categoryId ?? null,
+      period: insertBudget.period ?? "monthly",
+      alertThreshold: insertBudget.alertThreshold ?? null,
       createdAt: new Date()
     };
     this.budgets.set(id, budget);

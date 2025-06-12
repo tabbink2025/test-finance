@@ -16,7 +16,7 @@ export const categories = pgTable("categories", {
   name: text("name").notNull(),
   type: text("type").notNull(), // 'income', 'expense'
   color: text("color").notNull().default("#059669"),
-  parentId: integer("parent_id").references(() => categories.id),
+  parentId: integer("parent_id"), // Remove self-reference for now
 });
 
 export const transactions = pgTable("transactions", {

@@ -23,7 +23,7 @@ export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true,
+    allowedHosts: ["localhost", "127.0.0.1"] as string[],
   };
 
   const vite = await createViteServer({
@@ -71,9 +71,13 @@ export function serveStatic(app: Express) {
   const distPath = path.resolve(import.meta.dirname, "public");
 
   if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+    console.warn(`Build directory not found: ${distPath}`);
+    console.warn("Running in production mode but no build found. Please run 'npm run build' first.");
+    // Serve a simple message instead of throwing an error
+    app.use("*", (_req, res) => {
+      res.status(500).send("Application not built. Please run 'npm run build' first.");
+    });
+    return;
   }
 
   app.use(express.static(distPath));

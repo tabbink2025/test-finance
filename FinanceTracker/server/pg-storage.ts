@@ -191,13 +191,17 @@ export class PgStorage implements IStorage {
         break;
     }
 
+    // Convert dates to strings for comparison with date column
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const nowStr = now.toISOString().split('T')[0];
+
     const trans = await db
       .select()
       .from(transactions)
       .where(
         and(
-          gte(transactions.date, startDate),
-          lte(transactions.date, now)
+          gte(transactions.date, startDateStr),
+          lte(transactions.date, nowStr)
         )
       );
 
