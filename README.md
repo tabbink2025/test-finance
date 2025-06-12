@@ -50,7 +50,7 @@ npm start
 Create a `.env` file inside `FinanceTracker` with a `DATABASE_URL` pointing to your PostgreSQL instance, for example:
 
 ```
-DATABASE_URL=postgresql://postgres:test@localhost:5432/mydb
+DATABASE_URL=postgresql://postgres:test@localhost:5432/finance_tracker
 ```
 
 Run `npm run db:push` to apply the schema migrations to the database before starting the server.

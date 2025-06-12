@@ -779,4 +779,6 @@ export class MemStorage implements IStorage {
   }
 }
 
+console.log("DATABASE_URL:", process.env.DATABASE_URL ? "SET" : "NOT SET");
+console.log("Using storage:", process.env.DATABASE_URL ? "PgStorage" : "MemStorage");
 export const storage = process.env.DATABASE_URL ? new PgStorage() : new MemStorage();
