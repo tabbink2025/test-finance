@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -22,10 +23,8 @@ import {
 } from "@/components/ui/select";
 import type { SavingTactic } from "@shared/schema";
 
-// Extend the schema for personal tactics (isPersonal is handled by the parent)
-const savingTacticFormSchema = insertSavingTacticSchema.omit({
-  isPersonal: true,
-});
+// Use the full schema including isPersonal
+const savingTacticFormSchema = insertSavingTacticSchema;
 
 type SavingTacticFormData = z.infer<typeof savingTacticFormSchema>;
 
@@ -62,6 +61,7 @@ export default function SavingTacticForm({ tactic, onSubmit, onCancel }: SavingT
       estimatedSavings: tactic?.estimatedSavings || "",
       timeToImplement: tactic?.timeToImplement || "",
       tags: tactic?.tags || "",
+      isPersonal: tactic?.isPersonal ?? true,
       isActive: tactic?.isActive ?? true,
     },
   });
@@ -215,6 +215,50 @@ export default function SavingTacticForm({ tactic, onSubmit, onCancel }: SavingT
             </FormItem>
           )}
         />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="isPersonal"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Personal Tactic</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Mark this as a personal tactic (vs. expert recommendation)
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="isActive"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Active</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Show this tactic to users
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+        </div>
 
         <div className="flex justify-end space-x-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>

@@ -28,7 +28,9 @@ import {
   Edit, 
   Trash2,
   DollarSign,
-  Clock
+  Clock,
+  Star,
+  User
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -67,10 +69,7 @@ export default function SavingTactics() {
 
   const createTacticMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/saving-tactics", {
-        ...data,
-        isPersonal: true,
-      });
+      return apiRequest("POST", "/api/saving-tactics", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/saving-tactics"] });
@@ -179,31 +178,36 @@ export default function SavingTactics() {
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <CardTitle className="text-lg mb-2">{tactic.title}</CardTitle>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CardTitle className="text-lg">{tactic.title}</CardTitle>
+                    {tactic.isPersonal ? (
+                      <User className="w-4 h-4 text-blue-600" />
+                    ) : (
+                      <Star className="w-4 h-4 text-yellow-600" />
+                    )}
+                  </div>
                   <div className="flex gap-2 mb-3">
                     <Badge variant="outline">{tactic.difficulty}</Badge>
                     <Badge variant="outline">{tactic.category}</Badge>
                   </div>
                 </div>
-                {tactic.isPersonal && (
-                  <div className="flex gap-1 ml-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(tactic)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(tactic)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
+                <div className="flex gap-1 ml-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(tactic)}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(tactic)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
