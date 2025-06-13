@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,11 @@ export default function Goals() {
 
   const { data: accounts = [] } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
+  });
+
+  // Fetch all goal allocations to calculate totals
+  const { data: allAllocations = [] } = useQuery<GoalAllocation[]>({
+    queryKey: ["/api/goal-allocations"],
   });
 
   // Goals will be handled by individual GoalCard components
@@ -191,10 +196,41 @@ export default function Goals() {
   const activeGoals = goals.filter(goal => !goal.isCompleted);
   const completedGoals = goals.filter(goal => goal.isCompleted);
 
-  // Calculate statistics (without current amounts for now)
-  const totalTargetAmount = goals.reduce((sum, goal) => sum + parseFloat(goal.targetAmount), 0);
-  const totalCurrentAmount = 0; // Will be calculated by individual components
-  const averageProgress = 0; // Will be calculated by individual components
+  // Calculate statistics with actual data
+  const statistics = useMemo(() => {
+    const totalTargetAmount = goals.reduce((sum, goal) => sum + parseFloat(goal.targetAmount), 0);
+    
+    // Calculate total current amount from allocations
+    const goalIds = goals.map(g => g.id);
+    const totalCurrentAmount = allAllocations
+      .filter(allocation => goalIds.includes(allocation.goalId))
+      .reduce((sum, allocation) => sum + parseFloat(allocation.amount), 0);
+    
+    // Calculate average progress
+    let totalProgress = 0;
+    let validGoalsCount = 0;
+    
+    goals.forEach(goal => {
+      const goalTargetAmount = parseFloat(goal.targetAmount);
+      if (goalTargetAmount > 0) {
+        const goalCurrentAmount = allAllocations
+          .filter(allocation => allocation.goalId === goal.id)
+          .reduce((sum, allocation) => sum + parseFloat(allocation.amount), 0);
+        
+        const progress = (goalCurrentAmount / goalTargetAmount) * 100;
+        totalProgress += Math.min(progress, 100); // Cap at 100%
+        validGoalsCount++;
+      }
+    });
+    
+    const averageProgress = validGoalsCount > 0 ? totalProgress / validGoalsCount : 0;
+    
+    return {
+      totalTargetAmount,
+      totalCurrentAmount,
+      averageProgress
+    };
+  }, [goals, allAllocations]);
 
   return (
     <div>
@@ -225,7 +261,7 @@ export default function Goals() {
           <CardContent className="p-6">
             <div className="text-center">
               <p className="text-sm font-medium text-gray-600 mb-2">Target Amount</p>
-              <p className="text-3xl font-bold text-primary">{formatCurrency(totalTargetAmount)}</p>
+              <p className="text-3xl font-bold text-primary">{formatCurrency(statistics.totalTargetAmount)}</p>
             </div>
           </CardContent>
         </Card>
@@ -234,7 +270,7 @@ export default function Goals() {
           <CardContent className="p-6">
             <div className="text-center">
               <p className="text-sm font-medium text-gray-600 mb-2">Allocated Amount</p>
-              <p className="text-3xl font-bold text-secondary">{formatCurrency(totalCurrentAmount)}</p>
+              <p className="text-3xl font-bold text-secondary">{formatCurrency(statistics.totalCurrentAmount)}</p>
             </div>
           </CardContent>
         </Card>
@@ -243,7 +279,7 @@ export default function Goals() {
           <CardContent className="p-6">
             <div className="text-center">
               <p className="text-sm font-medium text-gray-600 mb-2">Average Progress</p>
-              <p className="text-3xl font-bold text-warning">{Math.round(averageProgress)}%</p>
+              <p className="text-3xl font-bold text-warning">{Math.round(statistics.averageProgress)}%</p>
             </div>
           </CardContent>
         </Card>
