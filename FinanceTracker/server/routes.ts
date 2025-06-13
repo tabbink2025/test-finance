@@ -335,6 +335,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/goal-allocations", async (req, res) => {
     try {
       const allocationData = insertGoalAllocationSchema.parse(req.body);
+      
+      // Validate allocation against account balance
+      const goal = await storage.getGoal(allocationData.goalId);
+      if (!goal) {
+        return res.status(404).json({ message: "Goal not found" });
+      }
+      
+      const account = await storage.getAccount(goal.accountId);
+      if (!account) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      
+      // Get all goals for this account
+      const allGoals = await storage.getGoals();
+      const accountGoals = allGoals.filter(g => g.accountId === goal.accountId);
+      const accountGoalIds = accountGoals.map(g => g.id);
+      
+      // Calculate total allocated for this account
+      const allAllocations = await storage.getGoalAllocations();
+      const totalAllocated = allAllocations
+        .filter(alloc => accountGoalIds.includes(alloc.goalId))
+        .reduce((sum, alloc) => sum + parseFloat(alloc.amount), 0);
+      
+      const allocationAmount = parseFloat(allocationData.amount);
+      const accountBalance = parseFloat(account.balance);
+      
+      if (totalAllocated + allocationAmount > accountBalance) {
+        return res.status(400).json({ 
+          message: `Allocation would exceed account balance. Available: $${(accountBalance - totalAllocated).toFixed(2)}, Requested: $${allocationAmount.toFixed(2)}` 
+        });
+      }
+      
       const allocation = await storage.createGoalAllocation(allocationData);
       res.status(201).json(allocation);
     } catch (error) {
@@ -352,6 +384,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid allocation id" });
       }
       const updateData = insertGoalAllocationSchema.partial().parse(req.body);
+      
+      // Get the existing allocation
+      const existingAllocations = await storage.getGoalAllocations();
+      const existingAllocation = existingAllocations.find(a => a.id === id);
+      if (!existingAllocation) {
+        return res.status(404).json({ message: "Goal allocation not found" });
+      }
+      
+      // If amount is being updated, validate against account balance
+      if (updateData.amount) {
+        const goal = await storage.getGoal(existingAllocation.goalId);
+        if (!goal) {
+          return res.status(404).json({ message: "Goal not found" });
+        }
+        
+        const account = await storage.getAccount(goal.accountId);
+        if (!account) {
+          return res.status(404).json({ message: "Account not found" });
+        }
+        
+        // Get all goals for this account
+        const allGoals = await storage.getGoals();
+        const accountGoals = allGoals.filter(g => g.accountId === goal.accountId);
+        const accountGoalIds = accountGoals.map(g => g.id);
+        
+        // Calculate total allocated for this account (excluding the current allocation being updated)
+        const allAllocations = await storage.getGoalAllocations();
+        const totalAllocated = allAllocations
+          .filter(alloc => accountGoalIds.includes(alloc.goalId) && alloc.id !== id)
+          .reduce((sum, alloc) => sum + parseFloat(alloc.amount), 0);
+        
+        const newAllocationAmount = parseFloat(updateData.amount);
+        const accountBalance = parseFloat(account.balance);
+        
+        if (totalAllocated + newAllocationAmount > accountBalance) {
+          const currentAllocationAmount = parseFloat(existingAllocation.amount);
+          const available = accountBalance - totalAllocated;
+          return res.status(400).json({ 
+            message: `Updated allocation would exceed account balance. Available: $${available.toFixed(2)}, Requested: $${newAllocationAmount.toFixed(2)}` 
+          });
+        }
+      }
+      
       const allocation = await storage.updateGoalAllocation(id, updateData);
       if (!allocation) {
         return res.status(404).json({ message: "Goal allocation not found" });

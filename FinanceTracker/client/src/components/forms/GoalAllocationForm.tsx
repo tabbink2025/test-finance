@@ -52,6 +52,30 @@ export default function GoalAllocationForm({
     enabled: !!goal?.accountId,
   });
 
+  // Fetch all goals for this account to calculate total allocated amounts
+  const { data: accountGoals = [] } = useQuery<Goal[]>({
+    queryKey: [`/api/goals/account/${goal?.accountId}`],
+    queryFn: async () => {
+      if (!goal?.accountId) return [];
+      const response = await fetch(`/api/goals`);
+      if (!response.ok) throw new Error('Failed to fetch goals');
+      const allGoals = await response.json();
+      return allGoals.filter((g: Goal) => g.accountId === goal.accountId);
+    },
+    enabled: !!goal?.accountId,
+  });
+
+  // Fetch all goal allocations to calculate total allocated amount
+  const { data: allAllocations = [] } = useQuery<GoalAllocation[]>({
+    queryKey: ["/api/goal-allocations"],
+    queryFn: async () => {
+      const response = await fetch("/api/goal-allocations");
+      if (!response.ok) throw new Error('Failed to fetch allocations');
+      return response.json();
+    },
+    enabled: !!goal?.accountId,
+  });
+
   // Create dynamic schema with balance validation
   const createAllocationFormSchema = (maxAmount: number) => {
     return insertGoalAllocationSchema.extend({
@@ -68,8 +92,22 @@ export default function GoalAllocationForm({
     });
   };
 
-  const availableBalance = account ? parseFloat(account.balance) : 0;
-  const allocationFormSchema = createAllocationFormSchema(availableBalance);
+  // Calculate total allocated amount for all goals in this account
+  const accountGoalIds = accountGoals.map(g => g.id);
+  const totalAllocatedForAccount = allAllocations
+    .filter(allocation => accountGoalIds.includes(allocation.goalId))
+    .reduce((sum, allocation) => sum + parseFloat(allocation.amount), 0);
+
+  // Calculate current goal's allocated amount (for editing existing allocations)
+  const currentGoalAllocated = allAllocations
+    .filter(alloc => alloc.goalId === goalId && (!allocation || alloc.id !== allocation.id))
+    .reduce((sum, alloc) => sum + parseFloat(alloc.amount), 0);
+
+  const accountBalance = account ? parseFloat(account.balance) : 0;
+  const unallocatedBalance = accountBalance - totalAllocatedForAccount;
+  const availableForThisAllocation = unallocatedBalance + (allocation ? parseFloat(allocation.amount) : 0);
+
+  const allocationFormSchema = createAllocationFormSchema(availableForThisAllocation);
   type AllocationFormData = z.infer<typeof allocationFormSchema>;
 
   const form = useForm<AllocationFormData>({
@@ -99,10 +137,14 @@ export default function GoalAllocationForm({
       {/* Account Balance Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h3 className="font-medium text-blue-900 mb-2">Account Information</h3>
-        <div className="text-sm text-blue-800">
+        <div className="text-sm text-blue-800 space-y-1">
           <p><strong>Account:</strong> {account.name}</p>
-          <p><strong>Available Balance:</strong> {formatCurrency(availableBalance)}</p>
           <p><strong>Goal:</strong> {goal.name}</p>
+          <div className="border-t border-blue-200 pt-2 mt-2">
+            <p><strong>Account Balance:</strong> {formatCurrency(accountBalance)}</p>
+            <p><strong>Total Allocated:</strong> {formatCurrency(totalAllocatedForAccount)}</p>
+            <p className="text-blue-900 font-semibold"><strong>Available to Allocate:</strong> {formatCurrency(availableForThisAllocation)}</p>
+          </div>
         </div>
       </div>
 
@@ -119,12 +161,12 @@ export default function GoalAllocationForm({
                     type="number" 
                     step="0.01" 
                     placeholder="0.00"
-                    max={availableBalance}
+                    max={availableForThisAllocation}
                     {...field} 
                   />
                 </FormControl>
                 <div className="text-xs text-gray-500 mt-1">
-                  Maximum: {formatCurrency(availableBalance)}
+                  Maximum: {formatCurrency(availableForThisAllocation)}
                 </div>
                 <FormMessage />
               </FormItem>
