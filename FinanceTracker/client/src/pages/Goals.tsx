@@ -6,11 +6,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Plus, Edit, Trash2, Target, Trophy, Clock } from "lucide-react";
-import type { Goal, Account } from "@shared/schema";
+import { Plus, Edit, Trash2, Target, Trophy, Clock, DollarSign } from "lucide-react";
+import type { Goal, Account, GoalAllocation } from "@shared/schema";
 import GoalForm from "@/components/forms/GoalForm";
+import GoalAllocationForm from "@/components/forms/GoalAllocationForm";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { GoalCard } from "@/components/GoalCard";
+import { AllocationManager } from "@/components/AllocationManager";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +27,9 @@ import {
 
 export default function Goals() {
   const [showForm, setShowForm] = useState(false);
+  const [showAllocationForm, setShowAllocationForm] = useState(false);
+  const [showAllocationManager, setShowAllocationManager] = useState(false);
+  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>(undefined);
   const [deletingGoal, setDeletingGoal] = useState<Goal | undefined>(undefined);
   const { toast } = useToast();
@@ -36,12 +42,13 @@ export default function Goals() {
     queryKey: ["/api/accounts"],
   });
 
+  // Goals will be handled by individual GoalCard components
+
   const createGoalMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/goals", {
         ...data,
         targetAmount: data.targetAmount.toString(),
-        currentAmount: data.currentAmount.toString(),
       });
     },
     onSuccess: () => {
@@ -67,7 +74,6 @@ export default function Goals() {
       return apiRequest("PUT", `/api/goals/${id}`, {
         ...data,
         targetAmount: data.targetAmount.toString(),
-        currentAmount: data.currentAmount.toString(),
       });
     },
     onSuccess: () => {
@@ -83,6 +89,32 @@ export default function Goals() {
       toast({
         title: "Error",
         description: "Failed to update goal",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createAllocationMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/goal-allocations", {
+        ...data,
+        amount: data.amount.toString(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
+      queryClient.invalidateQueries({ queryKey: ["goals", selectedGoalId, "current-amount"] });
+      setShowAllocationForm(false);
+      setSelectedGoalId(null);
+      toast({
+        title: "Success",
+        description: "Money allocated to goal successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to allocate money to goal",
         variant: "destructive",
       });
     },
@@ -117,9 +149,23 @@ export default function Goals() {
     }
   };
 
+  const handleAllocationSubmit = (data: any) => {
+    createAllocationMutation.mutate(data);
+  };
+
   const handleEdit = (goal: Goal) => {
     setEditingGoal(goal);
     setShowForm(true);
+  };
+
+  const handleAllocate = (goalId: number) => {
+    setSelectedGoalId(goalId);
+    setShowAllocationForm(true);
+  };
+
+  const handleManageAllocations = (goalId: number) => {
+    setSelectedGoalId(goalId);
+    setShowAllocationManager(true);
   };
 
   const handleDelete = (goal: Goal) => {
@@ -145,15 +191,10 @@ export default function Goals() {
   const activeGoals = goals.filter(goal => !goal.isCompleted);
   const completedGoals = goals.filter(goal => goal.isCompleted);
 
-  // Calculate statistics
+  // Calculate statistics (without current amounts for now)
   const totalTargetAmount = goals.reduce((sum, goal) => sum + parseFloat(goal.targetAmount), 0);
-  const totalCurrentAmount = goals.reduce((sum, goal) => sum + parseFloat(goal.currentAmount), 0);
-  const averageProgress = goals.length > 0 
-    ? goals.reduce((sum, goal) => {
-        const progress = (parseFloat(goal.currentAmount) / parseFloat(goal.targetAmount)) * 100;
-        return sum + Math.min(progress, 100);
-      }, 0) / goals.length
-    : 0;
+  const totalCurrentAmount = 0; // Will be calculated by individual components
+  const averageProgress = 0; // Will be calculated by individual components
 
   return (
     <div>
@@ -192,7 +233,7 @@ export default function Goals() {
         <Card>
           <CardContent className="p-6">
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-600 mb-2">Saved Amount</p>
+              <p className="text-sm font-medium text-gray-600 mb-2">Allocated Amount</p>
               <p className="text-3xl font-bold text-secondary">{formatCurrency(totalCurrentAmount)}</p>
             </div>
           </CardContent>
@@ -210,147 +251,48 @@ export default function Goals() {
 
       {/* Active Goals */}
       {activeGoals.length > 0 && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Target className="w-5 h-5 text-primary" />
-              <span>Active Goals ({activeGoals.length})</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeGoals.map((goal) => {
-                const progress = (parseFloat(goal.currentAmount) / parseFloat(goal.targetAmount)) * 100;
-                const isOverdue = goal.deadline && new Date(goal.deadline) < new Date();
-                
-                return (
-                  <Card key={goal.id} className="relative">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">{goal.name}</h3>
-                          <p className="text-sm text-gray-500">{getAccountName(goal.accountId)}</p>
-                          {goal.description && (
-                            <p className="text-sm text-gray-600 mt-2">{goal.description}</p>
-                          )}
-                        </div>
-                        
-                        <div className="flex space-x-1 ml-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleEdit(goal)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleDelete(goal)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Progress</span>
-                          <span className="font-medium">{Math.round(progress)}%</span>
-                        </div>
-                        
-                        <Progress value={Math.min(progress, 100)} className="h-2" />
-                        
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">
-                            {formatCurrency(goal.currentAmount)} of {formatCurrency(goal.targetAmount)}
-                          </span>
-                          <span className="text-gray-600">
-                            {formatCurrency(parseFloat(goal.targetAmount) - parseFloat(goal.currentAmount))} left
-                          </span>
-                        </div>
-
-                        {goal.deadline && (
-                          <div className="flex items-center space-x-2 mt-3">
-                            <Clock className="w-4 h-4 text-gray-400" />
-                            <span className={`text-sm ${isOverdue ? 'text-danger' : 'text-gray-600'}`}>
-                              Target: {formatDate(goal.deadline)}
-                              {isOverdue && " (Overdue)"}
-                            </span>
-                          </div>
-                        )}
-
-                        {progress >= 100 && (
-                          <Badge variant="default" className="bg-secondary">
-                            Goal Achieved!
-                          </Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Target className="w-5 h-5 text-primary" />
+            Active Goals ({activeGoals.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeGoals.map((goal) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                accountName={getAccountName(goal.accountId)}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onAllocate={handleAllocate}
+                onManageAllocations={handleManageAllocations}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Completed Goals */}
       {completedGoals.length > 0 && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Trophy className="w-5 h-5 text-warning" />
-              <span>Completed Goals ({completedGoals.length})</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {completedGoals.map((goal) => (
-                <Card key={goal.id} className="relative border-secondary/20 bg-secondary/5">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-1">{goal.name}</h3>
-                        <p className="text-sm text-gray-500">{getAccountName(goal.accountId)}</p>
-                        {goal.description && (
-                          <p className="text-sm text-gray-600 mt-2">{goal.description}</p>
-                        )}
-                      </div>
-                      
-                      <Badge variant="default" className="bg-secondary">
-                        <Trophy className="w-3 h-3 mr-1" />
-                        Completed
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Progress value={100} className="h-2" />
-                      
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Final Amount</span>
-                        <span className="font-medium text-secondary">
-                          {formatCurrency(goal.currentAmount)}
-                        </span>
-                      </div>
-
-                      {goal.deadline && (
-                        <div className="flex items-center space-x-2">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            Completed by {formatDate(goal.deadline)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-green-600" />
+            Completed Goals ({completedGoals.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {completedGoals.map((goal) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                accountName={getAccountName(goal.accountId)}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onAllocate={handleAllocate}
+                onManageAllocations={handleManageAllocations}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Empty State */}
@@ -371,14 +313,11 @@ export default function Goals() {
       )}
 
       {/* Add/Edit Goal Dialog */}
-      <Dialog open={showForm} onOpenChange={() => {
-        setShowForm(false);
-        setEditingGoal(undefined);
-      }}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingGoal ? "Edit Goal" : "Add Goal"}
+              {editingGoal ? "Edit Goal" : "Add New Goal"}
             </DialogTitle>
           </DialogHeader>
           <GoalForm
@@ -392,19 +331,58 @@ export default function Goals() {
         </DialogContent>
       </Dialog>
 
+      {/* Allocate Money Dialog */}
+      <Dialog open={showAllocationForm} onOpenChange={setShowAllocationForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Allocate Money to Goal</DialogTitle>
+          </DialogHeader>
+          {selectedGoalId && (
+            <GoalAllocationForm
+              goalId={selectedGoalId}
+              onSubmit={handleAllocationSubmit}
+              onCancel={() => {
+                setShowAllocationForm(false);
+                setSelectedGoalId(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Allocation Manager Dialog */}
+      <Dialog open={showAllocationManager} onOpenChange={setShowAllocationManager}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Manage Allocations</DialogTitle>
+          </DialogHeader>
+          {selectedGoalId && (
+            <AllocationManager
+              goalId={selectedGoalId}
+              onClose={() => {
+                setShowAllocationManager(false);
+                setSelectedGoalId(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingGoal} onOpenChange={() => setDeletingGoal(undefined)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Goal</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the goal "{deletingGoal?.name}". 
-              This action cannot be undone.
+              Are you sure you want to delete "{deletingGoal?.name}"? This action cannot be undone
+              and will also delete all allocations for this goal.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} className="bg-danger">
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

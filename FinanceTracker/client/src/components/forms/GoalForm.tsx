@@ -25,14 +25,17 @@ import type { Account, Goal } from "@shared/schema";
 
 const goalFormSchema = insertGoalSchema.extend({
   targetAmount: z.string().min(1, "Target amount is required"),
-  currentAmount: z.string().min(0, "Current amount must be positive"),
+  deadline: z.string().optional().transform((val) => {
+    // Convert empty string to null, otherwise keep the value
+    return val === "" || val === undefined ? null : val;
+  }),
 });
 
 type GoalFormData = z.infer<typeof goalFormSchema>;
 
 interface GoalFormProps {
   goal?: Goal;
-  onSubmit: (data: GoalFormData) => void;
+  onSubmit: (data: any) => void;
   onCancel: () => void;
 }
 
@@ -46,7 +49,6 @@ export default function GoalForm({ goal, onSubmit, onCancel }: GoalFormProps) {
     defaultValues: {
       name: goal?.name || "",
       targetAmount: goal?.targetAmount || "",
-      currentAmount: goal?.currentAmount || "0",
       deadline: goal?.deadline || "",
       accountId: goal?.accountId || accounts.find(a => a.type === 'savings')?.id || accounts[0]?.id || 1,
       description: goal?.description || "",
@@ -58,6 +60,7 @@ export default function GoalForm({ goal, onSubmit, onCancel }: GoalFormProps) {
     onSubmit({
       ...data,
       accountId: Number(data.accountId),
+      deadline: data.deadline || null, // Ensure empty string becomes null
     });
   };
 
@@ -78,27 +81,13 @@ export default function GoalForm({ goal, onSubmit, onCancel }: GoalFormProps) {
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <FormField
             control={form.control}
             name="targetAmount"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Target Amount</FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="currentAmount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Current Amount</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" placeholder="0.00" {...field} />
                 </FormControl>

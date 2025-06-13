@@ -3,6 +3,7 @@ import {
   categories,
   transactions,
   goals,
+  goalAllocations,
   budgets,
   stocks,
   type Account,
@@ -13,10 +14,14 @@ import {
   type InsertTransaction,
   type Goal,
   type InsertGoal,
+  type GoalAllocation,
+  type InsertGoalAllocation,
   type Budget,
   type InsertBudget,
   type Stock,
-  type InsertStock
+  type InsertStock,
+  type SavingTactic,
+  type InsertSavingTactic
 } from "@shared/schema";
 import { PgStorage } from "./pg-storage";
 
@@ -52,6 +57,14 @@ export interface IStorage {
   updateGoal(id: number, goal: Partial<InsertGoal>): Promise<Goal | undefined>;
   deleteGoal(id: number): Promise<boolean>;
 
+  // Goal Allocations
+  getGoalAllocations(): Promise<GoalAllocation[]>;
+  getGoalAllocationsByGoal(goalId: number): Promise<GoalAllocation[]>;
+  createGoalAllocation(allocation: InsertGoalAllocation): Promise<GoalAllocation>;
+  updateGoalAllocation(id: number, allocation: Partial<InsertGoalAllocation>): Promise<GoalAllocation | undefined>;
+  deleteGoalAllocation(id: number): Promise<boolean>;
+  getGoalCurrentAmount(goalId: number): Promise<number>;
+
   // Budgets
   getBudgets(): Promise<Budget[]>;
   getBudget(id: number): Promise<Budget | undefined>;
@@ -69,6 +82,15 @@ export interface IStorage {
   createStock(stock: InsertStock): Promise<Stock>;
   updateStock(id: number, stock: Partial<InsertStock>): Promise<Stock | undefined>;
   deleteStock(id: number): Promise<boolean>;
+
+  // Saving Tactics
+  getSavingTactics(): Promise<SavingTactic[]>;
+  getSavingTactic(id: number): Promise<SavingTactic | undefined>;
+  getSavingTacticsByCategory(category: string): Promise<SavingTactic[]>;
+  getPersonalSavingTactics(): Promise<SavingTactic[]>;
+  createSavingTactic(tactic: InsertSavingTactic): Promise<SavingTactic>;
+  updateSavingTactic(id: number, tactic: Partial<InsertSavingTactic>): Promise<SavingTactic | undefined>;
+  deleteSavingTactic(id: number): Promise<boolean>;
   updateStockPrice(id: number, newPrice: string): Promise<Stock | undefined>;
   getAccountStockValue(accountId: number): Promise<number>;
 }
@@ -78,28 +100,36 @@ export class MemStorage implements IStorage {
   private categories: Map<number, Category>;
   private transactions: Map<number, Transaction>;
   private goals: Map<number, Goal>;
+  private goalAllocations: Map<number, GoalAllocation>;
   private budgets: Map<number, Budget>;
   private stocks: Map<number, Stock>;
+  private savingTactics: Map<number, SavingTactic>;
   private currentAccountId: number;
   private currentCategoryId: number;
   private currentTransactionId: number;
   private currentGoalId: number;
+  private currentGoalAllocationId: number;
   private currentBudgetId: number;
   private currentStockId: number;
+  private currentSavingTacticId: number;
 
   constructor() {
     this.accounts = new Map();
     this.categories = new Map();
     this.transactions = new Map();
     this.goals = new Map();
+    this.goalAllocations = new Map();
     this.budgets = new Map();
     this.stocks = new Map();
+    this.savingTactics = new Map();
     this.currentAccountId = 1;
     this.currentCategoryId = 1;
     this.currentTransactionId = 1;
     this.currentGoalId = 1;
+    this.currentGoalAllocationId = 1;
     this.currentBudgetId = 1;
     this.currentStockId = 1;
+    this.currentSavingTacticId = 1;
     
     // Initialize with default data
     this.initializeDefaultData();
@@ -108,11 +138,10 @@ export class MemStorage implements IStorage {
   private initializeDefaultData() {
     // Default accounts
     const defaultAccounts = [
-      { name: "Checking Account", type: "checking", balance: "4250.32", color: "#2563EB", isActive: true },
-      { name: "Savings Account", type: "savings", balance: "8597.00", color: "#059669", isActive: true },
-      { name: "Credit Card", type: "credit", balance: "-347.89", color: "#DC2626", isActive: true },
-      { name: "Fidelity 401k", type: "investment", balance: "0.00", color: "#7C3AED", isActive: true },
-      { name: "Robinhood", type: "investment", balance: "0.00", color: "#F59E0B", isActive: true },
+      { name: "Checking Account", type: "checking", balance: "2500.00", initialBalance: "2500.00", color: "#2563EB", isActive: true },
+      { name: "Savings Account", type: "savings", balance: "15000.00", initialBalance: "15000.00", color: "#059669", isActive: true },
+      { name: "Credit Card", type: "credit", balance: "-1200.00", initialBalance: "0.00", color: "#DC2626", isActive: true },
+      { name: "Investment Account", type: "investment", balance: "25000.00", initialBalance: "25000.00", color: "#7C3AED", isActive: true }
     ];
 
     defaultAccounts.forEach(account => {
@@ -163,12 +192,11 @@ export class MemStorage implements IStorage {
       this.categories.set(id, { ...subcategory, id });
     });
 
-    // Default goals
+    // Default goals (remove currentAmount)
     const defaultGoals = [
       { 
         name: "Emergency Fund", 
         targetAmount: "10000.00", 
-        currentAmount: "5200.00", 
         deadline: "2024-12-31", 
         accountId: 2, 
         description: "Build emergency fund",
@@ -177,7 +205,6 @@ export class MemStorage implements IStorage {
       { 
         name: "Vacation Fund", 
         targetAmount: "3500.00", 
-        currentAmount: "1850.00", 
         deadline: "2024-06-30", 
         accountId: 2, 
         description: "Save for summer vacation",
@@ -188,6 +215,19 @@ export class MemStorage implements IStorage {
     defaultGoals.forEach(goal => {
       const id = this.currentGoalId++;
       this.goals.set(id, { ...goal, id });
+    });
+
+    // Default goal allocations
+    const defaultAllocations = [
+      { goalId: 1, amount: "5200.00", description: "Initial allocation to emergency fund", date: "2024-01-01" },
+      { goalId: 1, amount: "500.00", description: "Monthly emergency fund contribution", date: "2024-02-01" },
+      { goalId: 2, amount: "1850.00", description: "Initial allocation to vacation fund", date: "2024-01-01" },
+      { goalId: 2, amount: "300.00", description: "Monthly vacation fund contribution", date: "2024-02-01" },
+    ];
+
+    defaultAllocations.forEach(allocation => {
+      const id = this.currentGoalAllocationId++;
+      this.goalAllocations.set(id, { ...allocation, id, createdAt: new Date() });
     });
 
     // Default budgets
@@ -401,6 +441,130 @@ export class MemStorage implements IStorage {
         updatedAt: new Date()
       });
     });
+
+    // Default saving tactics
+    const defaultSavingTactics = [
+      {
+        title: "Track Every Expense",
+        description: "Record all your expenses for at least a month to understand where your money goes. Use apps like Mint, YNAB, or a simple spreadsheet.",
+        category: "budgeting",
+        difficulty: "easy",
+        estimatedSavings: "10-20% monthly budget",
+        timeToImplement: "1 week",
+        tags: '["tracking", "awareness", "budgeting"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "52-Week Savings Challenge",
+        description: "Save $1 in week 1, $2 in week 2, and so on. By week 52, you'll have saved $1,378. Start with any amount that works for you.",
+        category: "automation",
+        difficulty: "easy",
+        estimatedSavings: "$1,378/year",
+        timeToImplement: "5 minutes",
+        tags: '["challenge", "automatic", "gradual"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "Pay Yourself First",
+        description: "Automatically transfer a percentage of your income to savings as soon as you get paid, before any other expenses.",
+        category: "automation",
+        difficulty: "medium",
+        estimatedSavings: "15-20% of income",
+        timeToImplement: "30 minutes",
+        tags: '["automatic", "priority", "percentage"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "Round-Up Savings",
+        description: "Round up all purchases to the nearest dollar and save the difference. Many banks and apps offer this feature automatically.",
+        category: "automation",
+        difficulty: "easy",
+        estimatedSavings: "$250-500/year",
+        timeToImplement: "15 minutes",
+        tags: '["automatic", "micro-savings", "roundups"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "Meal Prep Sundays",
+        description: "Plan and prepare your meals for the week every Sunday. This saves money on takeout and reduces food waste.",
+        category: "lifestyle",
+        difficulty: "medium",
+        estimatedSavings: "$200-400/month",
+        timeToImplement: "3-4 hours weekly",
+        tags: '["food", "planning", "health"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "Energy Efficiency Audit",
+        description: "Review and optimize your home's energy usage. Switch to LED bulbs, adjust thermostat, unplug devices when not in use.",
+        category: "lifestyle",
+        difficulty: "medium",
+        estimatedSavings: "$50-150/month",
+        timeToImplement: "1 weekend",
+        tags: '["energy", "utilities", "environment"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "Cancel Unused Subscriptions",
+        description: "Review all your recurring subscriptions and cancel ones you don't actively use. Check bank statements for forgotten services.",
+        category: "budgeting",
+        difficulty: "easy",
+        estimatedSavings: "$50-200/month",
+        timeToImplement: "2 hours",
+        tags: '["subscriptions", "recurring", "review"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "30-Day Rule for Non-Essentials",
+        description: "Wait 30 days before buying anything non-essential over $50. Often you'll realize you don't actually need it.",
+        category: "mindset",
+        difficulty: "medium",
+        estimatedSavings: "varies",
+        timeToImplement: "immediate",
+        tags: '["impulse", "waiting", "consideration"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "High-Yield Savings Account",
+        description: "Move your emergency fund and savings to a high-yield savings account to earn more interest on your money.",
+        category: "investment",
+        difficulty: "easy",
+        estimatedSavings: "extra 4-5% annually",
+        timeToImplement: "1 hour",
+        tags: '["interest", "savings", "account"]',
+        isPersonal: false,
+        isActive: true
+      },
+      {
+        title: "Build an Emergency Fund",
+        description: "Save 3-6 months of expenses in a separate account for unexpected situations. Start with just $500 if you're beginning.",
+        category: "emergency",
+        difficulty: "hard",
+        estimatedSavings: "peace of mind",
+        timeToImplement: "6-12 months",
+        tags: '["emergency", "security", "fund"]',
+        isPersonal: false,
+        isActive: true
+      }
+    ];
+
+    defaultSavingTactics.forEach(tactic => {
+      const id = this.currentSavingTacticId++;
+      this.savingTactics.set(id, {
+        ...tactic,
+        id,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    });
   }
 
   // Account methods
@@ -419,6 +583,7 @@ export class MemStorage implements IStorage {
       name: insertAccount.name,
       type: insertAccount.type,
       balance: insertAccount.balance ?? "0",
+      initialBalance: insertAccount.initialBalance ?? insertAccount.balance ?? "0",
       color: insertAccount.color ?? "#2563EB",
       isActive: insertAccount.isActive ?? true,
     };
@@ -569,7 +734,6 @@ export class MemStorage implements IStorage {
       ...insertGoal, 
       id,
       description: insertGoal.description ?? null,
-      currentAmount: insertGoal.currentAmount ?? "0",
       deadline: insertGoal.deadline ?? null,
       isCompleted: insertGoal.isCompleted ?? false,
     };
@@ -587,7 +751,57 @@ export class MemStorage implements IStorage {
   }
 
   async deleteGoal(id: number): Promise<boolean> {
-    return this.goals.delete(id);
+    const deleted = this.goals.delete(id);
+    if (deleted) {
+      // Also delete all allocations for this goal
+      const allocationsToDelete = Array.from(this.goalAllocations.entries())
+        .filter(([_, allocation]) => allocation.goalId === id)
+        .map(([id, _]) => id);
+      
+      allocationsToDelete.forEach(allocationId => {
+        this.goalAllocations.delete(allocationId);
+      });
+    }
+    return deleted;
+  }
+
+  // Goal Allocation methods
+  async getGoalAllocations(): Promise<GoalAllocation[]> {
+    return Array.from(this.goalAllocations.values());
+  }
+
+  async getGoalAllocationsByGoal(goalId: number): Promise<GoalAllocation[]> {
+    return Array.from(this.goalAllocations.values()).filter(a => a.goalId === goalId);
+  }
+
+  async createGoalAllocation(insertAllocation: InsertGoalAllocation): Promise<GoalAllocation> {
+    const id = this.currentGoalAllocationId++;
+    const allocation: GoalAllocation = { 
+      ...insertAllocation, 
+      id,
+      description: insertAllocation.description ?? null,
+      createdAt: new Date(),
+    };
+    this.goalAllocations.set(id, allocation);
+    return allocation;
+  }
+
+  async updateGoalAllocation(id: number, updateData: Partial<InsertGoalAllocation>): Promise<GoalAllocation | undefined> {
+    const allocation = this.goalAllocations.get(id);
+    if (!allocation) return undefined;
+    
+    const updatedAllocation = { ...allocation, ...updateData };
+    this.goalAllocations.set(id, updatedAllocation);
+    return updatedAllocation;
+  }
+
+  async deleteGoalAllocation(id: number): Promise<boolean> {
+    return this.goalAllocations.delete(id);
+  }
+
+  async getGoalCurrentAmount(goalId: number): Promise<number> {
+    const allocations = await this.getGoalAllocationsByGoal(goalId);
+    return allocations.reduce((sum, allocation) => sum + parseFloat(allocation.amount), 0);
   }
 
   // Budget methods
@@ -776,6 +990,61 @@ export class MemStorage implements IStorage {
       };
       this.accounts.set(accountId, updatedAccount);
     }
+  }
+
+  // Saving Tactics methods
+  async getSavingTactics(): Promise<SavingTactic[]> {
+    return Array.from(this.savingTactics.values()).filter(tactic => tactic.isActive);
+  }
+
+  async getSavingTactic(id: number): Promise<SavingTactic | undefined> {
+    return this.savingTactics.get(id);
+  }
+
+  async getSavingTacticsByCategory(category: string): Promise<SavingTactic[]> {
+    return Array.from(this.savingTactics.values()).filter(
+      tactic => tactic.category === category && tactic.isActive
+    );
+  }
+
+  async getPersonalSavingTactics(): Promise<SavingTactic[]> {
+    return Array.from(this.savingTactics.values()).filter(
+      tactic => tactic.isPersonal && tactic.isActive
+    );
+  }
+
+  async createSavingTactic(insertTactic: InsertSavingTactic): Promise<SavingTactic> {
+    const id = this.currentSavingTacticId++;
+    const tactic: SavingTactic = {
+      ...insertTactic,
+      id,
+      isActive: insertTactic.isActive ?? true,
+      isPersonal: insertTactic.isPersonal ?? false,
+      estimatedSavings: insertTactic.estimatedSavings ?? null,
+      timeToImplement: insertTactic.timeToImplement ?? null,
+      tags: insertTactic.tags ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.savingTactics.set(id, tactic);
+    return tactic;
+  }
+
+  async updateSavingTactic(id: number, updateData: Partial<InsertSavingTactic>): Promise<SavingTactic | undefined> {
+    const tactic = this.savingTactics.get(id);
+    if (!tactic) return undefined;
+    
+    const updatedTactic = {
+      ...tactic,
+      ...updateData,
+      updatedAt: new Date()
+    };
+    this.savingTactics.set(id, updatedTactic);
+    return updatedTactic;
+  }
+
+  async deleteSavingTactic(id: number): Promise<boolean> {
+    return this.savingTactics.delete(id);
   }
 }
 

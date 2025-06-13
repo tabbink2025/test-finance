@@ -1,12 +1,14 @@
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, sum } from "drizzle-orm";
 import { db } from "./db";
 import {
   accounts,
   categories,
   transactions,
   goals,
+  goalAllocations,
   budgets,
   stocks,
+  savingTactics,
   type Account,
   type InsertAccount,
   type Category,
@@ -15,10 +17,14 @@ import {
   type InsertTransaction,
   type Goal,
   type InsertGoal,
+  type GoalAllocation,
+  type InsertGoalAllocation,
   type Budget,
   type InsertBudget,
   type Stock,
   type InsertStock,
+  type SavingTactic,
+  type InsertSavingTactic,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -134,8 +140,8 @@ export class PgStorage implements IStorage {
   }
 
   async deleteGoal(id: number): Promise<boolean> {
-    const rows = await db.delete(goals).where(eq(goals.id, id)).returning({ id: goals.id });
-    return rows.length > 0;
+    const result = await db.delete(goals).where(eq(goals.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getBudgets(): Promise<Budget[]> {
@@ -273,10 +279,110 @@ export class PgStorage implements IStorage {
   }
 
   private async updateAccountBalance(accountId: number): Promise<void> {
-    const stockValue = await this.getAccountStockValue(accountId);
+    // Get the initial balance from the account
+    const accountRows = await db.select().from(accounts).where(eq(accounts.id, accountId));
+    const account = accountRows[0];
+    if (!account) return;
+
+    // Use initialBalance as the base, defaulting to 0 if null/undefined
+    let balance = parseFloat(account.initialBalance as unknown as string) || 0;
+
+    // Get all transactions for this account
+    const trans = await db.select().from(transactions).where(eq(transactions.accountId, accountId));
+
+    // Sum all transactions
+    for (const t of trans) {
+      const amount = parseFloat(t.amount as unknown as string);
+      if (t.type === "income") {
+        balance += amount;
+      } else if (t.type === "expense") {
+        balance -= amount;
+      } else if (t.type === "transfer") {
+        // For transfer, treat as expense (leaving this account)
+        balance -= amount;
+      }
+    }
+
+    // Optionally add stock value for investment accounts
+    let stockValue = 0;
+    if (account.type === "investment") {
+      stockValue = await this.getAccountStockValue(accountId);
+      balance += stockValue;
+    }
+
     await db
       .update(accounts)
-      .set({ balance: stockValue.toFixed(2) })
+      .set({ balance: balance.toFixed(2) })
       .where(eq(accounts.id, accountId));
+  }
+
+  // Goal Allocation methods
+  async getGoalAllocations(): Promise<GoalAllocation[]> {
+    return db.select().from(goalAllocations);
+  }
+
+  async getGoalAllocationsByGoal(goalId: number): Promise<GoalAllocation[]> {
+    return db.select().from(goalAllocations).where(eq(goalAllocations.goalId, goalId));
+  }
+
+  async createGoalAllocation(allocation: InsertGoalAllocation): Promise<GoalAllocation> {
+    const rows = await db.insert(goalAllocations).values(allocation).returning();
+    return rows[0];
+  }
+
+  async updateGoalAllocation(id: number, allocation: Partial<InsertGoalAllocation>): Promise<GoalAllocation | undefined> {
+    const rows = await db.update(goalAllocations).set(allocation).where(eq(goalAllocations.id, id)).returning();
+    return rows[0];
+  }
+
+  async deleteGoalAllocation(id: number): Promise<boolean> {
+    const result = await db.delete(goalAllocations).where(eq(goalAllocations.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getGoalCurrentAmount(goalId: number): Promise<number> {
+    const result = await db
+      .select({ totalAmount: sum(goalAllocations.amount) })
+      .from(goalAllocations)
+      .where(eq(goalAllocations.goalId, goalId));
+    
+    return parseFloat(result[0]?.totalAmount || "0");
+  }
+
+  // Saving Tactics methods
+  async getSavingTactics(): Promise<SavingTactic[]> {
+    return db.select().from(savingTactics).where(eq(savingTactics.isActive, true));
+  }
+
+  async getSavingTactic(id: number): Promise<SavingTactic | undefined> {
+    const rows = await db.select().from(savingTactics).where(eq(savingTactics.id, id));
+    return rows[0];
+  }
+
+  async getSavingTacticsByCategory(category: string): Promise<SavingTactic[]> {
+    return db.select().from(savingTactics).where(
+      and(eq(savingTactics.category, category), eq(savingTactics.isActive, true))
+    );
+  }
+
+  async getPersonalSavingTactics(): Promise<SavingTactic[]> {
+    return db.select().from(savingTactics).where(
+      and(eq(savingTactics.isPersonal, true), eq(savingTactics.isActive, true))
+    );
+  }
+
+  async createSavingTactic(tactic: InsertSavingTactic): Promise<SavingTactic> {
+    const rows = await db.insert(savingTactics).values(tactic).returning();
+    return rows[0];
+  }
+
+  async updateSavingTactic(id: number, tactic: Partial<InsertSavingTactic>): Promise<SavingTactic | undefined> {
+    const rows = await db.update(savingTactics).set(tactic).where(eq(savingTactics.id, id)).returning();
+    return rows[0];
+  }
+
+  async deleteSavingTactic(id: number): Promise<boolean> {
+    const result = await db.delete(savingTactics).where(eq(savingTactics.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }

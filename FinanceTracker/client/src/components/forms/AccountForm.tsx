@@ -29,7 +29,7 @@ type AccountFormData = z.infer<typeof accountFormSchema>;
 
 interface AccountFormProps {
   account?: Account;
-  onSubmit: (data: AccountFormData) => void;
+  onSubmit: (data: any) => void;
   onCancel: () => void;
 }
 
@@ -62,7 +62,10 @@ export default function AccountForm({ account, onSubmit, onCancel }: AccountForm
   });
 
   const handleSubmit = (data: AccountFormData) => {
-    onSubmit(data);
+    onSubmit({
+      ...data,
+      initialBalance: data.balance,
+    });
   };
 
   return (

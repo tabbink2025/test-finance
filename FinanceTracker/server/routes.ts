@@ -1,7 +1,16 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAccountSchema, insertCategorySchema, insertTransactionSchema, insertGoalSchema, insertBudgetSchema, insertStockSchema } from "@shared/schema";
+import {
+  insertAccountSchema,
+  insertCategorySchema,
+  insertTransactionSchema,
+  insertGoalSchema,
+  insertGoalAllocationSchema,
+  insertBudgetSchema,
+  insertStockSchema,
+  insertSavingTacticSchema
+} from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -217,20 +226,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const goals = await storage.getGoals();
       res.json(goals);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch goals" });
+      console.error("Get goals error:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch goals", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  app.get("/api/goals/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid goal id" });
+      }
+      const goal = await storage.getGoal(id);
+      if (!goal) {
+        return res.status(404).json({ message: "Goal not found" });
+      }
+      res.json(goal);
+    } catch (error) {
+      console.error("Get goal error:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch goal", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 
   app.post("/api/goals", async (req, res) => {
     try {
+      console.log("Received goal data:", req.body);
       const goalData = insertGoalSchema.parse(req.body);
+      console.log("Parsed goal data:", goalData);
       const goal = await storage.createGoal(goalData);
       res.status(201).json(goal);
     } catch (error) {
+      console.error("Goal creation error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid goal data", errors: error.errors });
       }
-      res.status(500).json({ message: "Failed to create goal" });
+      res.status(500).json({ 
+        message: "Failed to create goal", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 
@@ -267,6 +306,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete goal" });
+    }
+  });
+
+  // Goal Allocation routes
+  app.get("/api/goal-allocations", async (req, res) => {
+    try {
+      const allocations = await storage.getGoalAllocations();
+      res.json(allocations);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch goal allocations" });
+    }
+  });
+
+  app.get("/api/goals/:goalId/allocations", async (req, res) => {
+    try {
+      const goalId = parseInt(req.params.goalId);
+      if (Number.isNaN(goalId)) {
+        return res.status(400).json({ message: "Invalid goal id" });
+      }
+      const allocations = await storage.getGoalAllocationsByGoal(goalId);
+      res.json(allocations);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch goal allocations" });
+    }
+  });
+
+  app.post("/api/goal-allocations", async (req, res) => {
+    try {
+      const allocationData = insertGoalAllocationSchema.parse(req.body);
+      const allocation = await storage.createGoalAllocation(allocationData);
+      res.status(201).json(allocation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid allocation data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create goal allocation" });
+    }
+  });
+
+  app.put("/api/goal-allocations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid allocation id" });
+      }
+      const updateData = insertGoalAllocationSchema.partial().parse(req.body);
+      const allocation = await storage.updateGoalAllocation(id, updateData);
+      if (!allocation) {
+        return res.status(404).json({ message: "Goal allocation not found" });
+      }
+      res.json(allocation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid allocation data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update goal allocation" });
+    }
+  });
+
+  app.delete("/api/goal-allocations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid allocation id" });
+      }
+      const deleted = await storage.deleteGoalAllocation(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Goal allocation not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete goal allocation" });
+    }
+  });
+
+  app.get("/api/goals/:goalId/allocations", async (req, res) => {
+    try {
+      const goalId = parseInt(req.params.goalId);
+      if (Number.isNaN(goalId)) {
+        return res.status(400).json({ message: "Invalid goal id" });
+      }
+      const allocations = await storage.getGoalAllocationsByGoal(goalId);
+      res.json(allocations);
+    } catch (error) {
+      console.error("Get goal allocations error:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch goal allocations", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  app.get("/api/goals/:goalId/current-amount", async (req, res) => {
+    try {
+      const goalId = parseInt(req.params.goalId);
+      if (Number.isNaN(goalId)) {
+        return res.status(400).json({ message: "Invalid goal id" });
+      }
+      const currentAmount = await storage.getGoalCurrentAmount(goalId);
+      res.json({ goalId, currentAmount });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get goal current amount" });
     }
   });
 
@@ -469,6 +610,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete stock" });
+    }
+  });
+
+  // Saving Tactics routes
+  app.get("/api/saving-tactics", async (req, res) => {
+    try {
+      const tactics = await storage.getSavingTactics();
+      res.json(tactics);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch saving tactics" });
+    }
+  });
+
+  app.get("/api/saving-tactics/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid saving tactic id" });
+      }
+      const tactic = await storage.getSavingTactic(id);
+      if (!tactic) {
+        return res.status(404).json({ message: "Saving tactic not found" });
+      }
+      res.json(tactic);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch saving tactic" });
+    }
+  });
+
+  app.get("/api/saving-tactics/category/:category", async (req, res) => {
+    try {
+      const category = req.params.category;
+      const tactics = await storage.getSavingTacticsByCategory(category);
+      res.json(tactics);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch saving tactics by category" });
+    }
+  });
+
+  app.get("/api/saving-tactics/personal", async (req, res) => {
+    try {
+      const tactics = await storage.getPersonalSavingTactics();
+      res.json(tactics);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch personal saving tactics" });
+    }
+  });
+
+  app.post("/api/saving-tactics", async (req, res) => {
+    try {
+      const tacticData = insertSavingTacticSchema.parse(req.body);
+      const tactic = await storage.createSavingTactic(tacticData);
+      res.status(201).json(tactic);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid saving tactic data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create saving tactic" });
+    }
+  });
+
+  app.put("/api/saving-tactics/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid saving tactic id" });
+      }
+      const updateData = insertSavingTacticSchema.partial().parse(req.body);
+      const tactic = await storage.updateSavingTactic(id, updateData);
+      if (!tactic) {
+        return res.status(404).json({ message: "Saving tactic not found" });
+      }
+      res.json(tactic);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid saving tactic data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update saving tactic" });
+    }
+  });
+
+  app.delete("/api/saving-tactics/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ message: "Invalid saving tactic id" });
+      }
+      const deleted = await storage.deleteSavingTactic(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Saving tactic not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete saving tactic" });
     }
   });
 

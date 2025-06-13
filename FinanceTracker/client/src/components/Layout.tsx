@@ -12,7 +12,8 @@ import {
   Target,
   CandlestickChart,
   PiggyBank,
-  BarChart3
+  BarChart3,
+  Lightbulb
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const navigation = [
   { name: "Goals", href: "/goals", icon: Target },
   { name: "Stocks", href: "/stocks", icon: CandlestickChart },
   { name: "Budgets", href: "/budgets", icon: PiggyBank },
+  { name: "Saving Tactics", href: "/saving-tactics", icon: Lightbulb },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
 

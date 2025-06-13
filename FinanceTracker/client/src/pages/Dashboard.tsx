@@ -14,16 +14,23 @@ import {
   Receipt
 } from "lucide-react";
 import type { Account, Transaction, Goal, Category } from "@shared/schema";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import TransactionForm from "@/components/forms/TransactionForm";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import AccountForm from "@/components/forms/AccountForm";
+import GoalForm from "@/components/forms/GoalForm";
+import { useLocation } from "wouter";
+// import { useGoalCurrentAmount } from "@/hooks/useGoalCurrentAmount";
 
 export default function Dashboard() {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [showAccountForm, setShowAccountForm] = useState(false);
+  const [showGoalForm, setShowGoalForm] = useState(false);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
@@ -66,6 +73,48 @@ export default function Dashboard() {
     },
   });
 
+  const createAccountMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/accounts", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      setShowAccountForm(false);
+      toast({
+        title: "Success",
+        description: "Account created successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createGoalMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/goals", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
+      setShowGoalForm(false);
+      toast({
+        title: "Success",
+        description: "Goal created successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create goal",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (accountsLoading || transactionsLoading || goalsLoading) {
     return <div>Loading...</div>;
   }
@@ -94,12 +143,13 @@ export default function Dashboard() {
     .slice(0, 5);
 
   const activeGoals = goals.filter(g => !g.isCompleted);
-  const averageGoalProgress = activeGoals.length > 0 
-    ? activeGoals.reduce((sum, goal) => {
-        const progress = (parseFloat(goal.currentAmount) / parseFloat(goal.targetAmount)) * 100;
-        return sum + Math.min(progress, 100);
-      }, 0) / activeGoals.length
-    : 0;
+  const averageGoalProgress = 0; // TODO: Update to use allocation system
+  // const averageGoalProgress = activeGoals.length > 0 
+  //   ? activeGoals.reduce((sum, goal) => {
+  //       const progress = (parseFloat(goal.currentAmount) / parseFloat(goal.targetAmount)) * 100;
+  //       return sum + Math.min(progress, 100);
+  //     }, 0) / activeGoals.length
+  //   : 0;
 
   const getCategoryName = (categoryId: number | null) => {
     if (!categoryId) return "Uncategorized";
@@ -198,7 +248,7 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Account Balances</CardTitle>
-              <Button variant="ghost" size="sm">+ Add Account</Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowAccountForm(true)}>+ Add Account</Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -246,7 +296,7 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Recent Transactions</CardTitle>
-              <Button variant="ghost" size="sm">View All</Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/transactions")}>View All</Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -304,7 +354,7 @@ export default function Dashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Savings Goals</CardTitle>
-            <Button variant="ghost" size="sm">+ Add Goal</Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowGoalForm(true)}>+ Add Goal</Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -312,26 +362,10 @@ export default function Dashboard() {
             {activeGoals.length === 0 ? (
               <p className="text-center text-gray-500 py-8">No active goals</p>
             ) : (
-              activeGoals.map((goal) => {
-                const progress = (parseFloat(goal.currentAmount) / parseFloat(goal.targetAmount)) * 100;
-                return (
-                  <div key={goal.id} className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900">{goal.name}</h4>
-                      <span className="text-sm text-gray-500">
-                        {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
-                      </span>
-                    </div>
-                    <Progress value={Math.min(progress, 100)} className="mb-2" />
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">{Math.round(progress)}% complete</span>
-                      {goal.deadline && (
-                        <span className="text-gray-500">Target: {formatDate(goal.deadline)}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+              <div className="text-center text-gray-500 py-8">
+                <p>Goals functionality updated to use allocation system!</p>
+                <p className="text-sm">Visit the Goals page to allocate money to your goals.</p>
+              </div>
             )}
           </div>
         </CardContent>
@@ -384,6 +418,32 @@ export default function Dashboard() {
           <TransactionForm
             onSubmit={(data) => addTransactionMutation.mutate(data)}
             onCancel={() => setShowTransactionForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Account Dialog */}
+      <Dialog open={showAccountForm} onOpenChange={setShowAccountForm}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Account</DialogTitle>
+          </DialogHeader>
+          <AccountForm
+            onSubmit={data => createAccountMutation.mutate(data)}
+            onCancel={() => setShowAccountForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Goal Dialog */}
+      <Dialog open={showGoalForm} onOpenChange={setShowGoalForm}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Goal</DialogTitle>
+          </DialogHeader>
+          <GoalForm
+            onSubmit={data => createGoalMutation.mutate(data)}
+            onCancel={() => setShowGoalForm(false)}
           />
         </DialogContent>
       </Dialog>

@@ -69,7 +69,7 @@ export default function CategoryForm({ category, onSubmit, onCancel }: CategoryF
       name: data.name,
       type: data.type,
       color: data.color,
-      parentId: data.parentId && data.parentId !== "" ? Number(data.parentId) : null,
+      parentId: data.parentId && data.parentId !== "none" ? Number(data.parentId) : null,
     });
   };
 
@@ -160,7 +160,7 @@ export default function CategoryForm({ category, onSubmit, onCancel }: CategoryF
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {parentCategories.map((parentCategory) => (
                     <SelectItem key={parentCategory.id} value={parentCategory.id.toString()}>
                       {parentCategory.name}

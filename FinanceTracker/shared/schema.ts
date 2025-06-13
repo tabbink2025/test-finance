@@ -7,6 +7,7 @@ export const accounts = pgTable("accounts", {
   name: text("name").notNull(),
   type: text("type").notNull(), // 'checking', 'savings', 'credit', 'investment'
   balance: decimal("balance", { precision: 12, scale: 2 }).notNull().default("0"),
+  initialBalance: decimal("initial_balance", { precision: 12, scale: 2 }).notNull().default("0"),
   color: text("color").notNull().default("#2563EB"),
   isActive: boolean("is_active").notNull().default(true),
 });
@@ -35,11 +36,19 @@ export const goals = pgTable("goals", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   targetAmount: decimal("target_amount", { precision: 12, scale: 2 }).notNull(),
-  currentAmount: decimal("current_amount", { precision: 12, scale: 2 }).notNull().default("0"),
   deadline: date("deadline"),
   accountId: integer("account_id").notNull().references(() => accounts.id),
   description: text("description"),
   isCompleted: boolean("is_completed").notNull().default(false),
+});
+
+export const goalAllocations = pgTable("goal_allocations", {
+  id: serial("id").primaryKey(),
+  goalId: integer("goal_id").notNull().references(() => goals.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  description: text("description"),
+  date: date("date").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const budgets = pgTable("budgets", {
@@ -69,6 +78,21 @@ export const stocks = pgTable("stocks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const savingTactics = pgTable("saving_tactics", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // 'budgeting', 'automation', 'mindset', 'lifestyle', 'investment', 'emergency', 'custom'
+  difficulty: text("difficulty").notNull(), // 'easy', 'medium', 'hard'
+  estimatedSavings: text("estimated_savings"), // e.g., '$50/month', '10% of income', 'varies'
+  timeToImplement: text("time_to_implement"), // e.g., '1 hour', '1 week', 'ongoing'
+  tags: text("tags"), // JSON array of tags as string
+  isPersonal: boolean("is_personal").notNull().default(false), // false for default tactics, true for user-created
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertAccountSchema = createInsertSchema(accounts).omit({
   id: true,
@@ -87,12 +111,23 @@ export const insertGoalSchema = createInsertSchema(goals).omit({
   id: true,
 });
 
+export const insertGoalAllocationSchema = createInsertSchema(goalAllocations).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertBudgetSchema = createInsertSchema(budgets).omit({
   id: true,
   createdAt: true,
 });
 
 export const insertStockSchema = createInsertSchema(stocks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSavingTacticSchema = createInsertSchema(savingTactics).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -111,8 +146,14 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Goal = typeof goals.$inferSelect;
 export type InsertGoal = z.infer<typeof insertGoalSchema>;
 
+export type GoalAllocation = typeof goalAllocations.$inferSelect;
+export type InsertGoalAllocation = z.infer<typeof insertGoalAllocationSchema>;
+
 export type Budget = typeof budgets.$inferSelect;
 export type InsertBudget = z.infer<typeof insertBudgetSchema>;
 
 export type Stock = typeof stocks.$inferSelect;
 export type InsertStock = z.infer<typeof insertStockSchema>;
+
+export type SavingTactic = typeof savingTactics.$inferSelect;
+export type InsertSavingTactic = z.infer<typeof insertSavingTacticSchema>;
