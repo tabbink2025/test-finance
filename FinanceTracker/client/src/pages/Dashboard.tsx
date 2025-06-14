@@ -118,33 +118,6 @@ export default function Dashboard() {
     },
   });
 
-  if (accountsLoading || transactionsLoading || goalsLoading) {
-    return <div>Loading...</div>;
-  }
-
-  // Calculate summary statistics
-  const totalBalance = accounts.reduce((sum, account) => sum + parseFloat(account.balance), 0);
-  
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  
-  const monthlyTransactions = transactions.filter(t => {
-    const transactionDate = new Date(t.date);
-    return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
-  });
-
-  const monthlyIncome = monthlyTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-  const monthlyExpenses = monthlyTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-  const recentTransactions = transactions
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
-
   // Calculate goal statistics using allocations
   const goalsWithAllocations = useMemo(() => {
     return goals.map(goal => {
@@ -175,6 +148,33 @@ export default function Dashboard() {
     const account = accounts.find(a => a.id === accountId);
     return account?.name || "Unknown";
   };
+
+  if (accountsLoading || transactionsLoading || goalsLoading) {
+    return <div>Loading...</div>;
+  }
+
+  // Calculate summary statistics
+  const totalBalance = accounts.reduce((sum, account) => sum + parseFloat(account.balance), 0);
+  
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  const monthlyTransactions = transactions.filter(t => {
+    const transactionDate = new Date(t.date);
+    return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
+  });
+
+  const monthlyIncome = monthlyTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+  const monthlyExpenses = monthlyTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+  const recentTransactions = transactions
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
 
   return (
     <div>
