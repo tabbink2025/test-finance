@@ -230,7 +230,16 @@ export default function Reports() {
                 <BarChart data={reportData.monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+                  <YAxis 
+                    tickFormatter={(value) => {
+                      if (Math.abs(value) >= 1000) {
+                        return `$${(value / 1000).toFixed(1)}k`;
+                      }
+                      return formatCurrency(value);
+                    }}
+                    domain={[0, 'dataMax + 100']}
+                    allowDataOverflow={false}
+                  />
                   <Tooltip formatter={(value) => formatCurrency(value as number)} />
                   <Bar dataKey="income" fill="#059669" name="Income" />
                   <Bar dataKey="expenses" fill="#DC2626" name="Expenses" />
@@ -290,7 +299,16 @@ export default function Reports() {
               <LineChart data={reportData.monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
-                <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+                <YAxis 
+                  tickFormatter={(value) => {
+                    if (Math.abs(value) >= 1000) {
+                      return `$${(value / 1000).toFixed(1)}k`;
+                    }
+                    return formatCurrency(value);
+                  }}
+                  domain={['dataMin - 100', 'dataMax + 100']}
+                  allowDataOverflow={false}
+                />
                 <Tooltip formatter={(value) => formatCurrency(value as number)} />
                 <Line 
                   type="monotone" 

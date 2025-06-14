@@ -13,7 +13,7 @@ import {
   CreditCard,
   Receipt
 } from "lucide-react";
-import type { Account, Transaction, Goal, Category } from "@shared/schema";
+import type { Account, Transaction, Goal, Category, GoalAllocation } from "@shared/schema";
 import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import TransactionForm from "@/components/forms/TransactionForm";
@@ -23,7 +23,6 @@ import { useToast } from "@/hooks/use-toast";
 import AccountForm from "@/components/forms/AccountForm";
 import GoalForm from "@/components/forms/GoalForm";
 import { useLocation } from "wouter";
-// import { useGoalCurrentAmount } from "@/hooks/useGoalCurrentAmount";
 
 export default function Dashboard() {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
@@ -46,6 +45,10 @@ export default function Dashboard() {
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+  });
+
+  const { data: goalAllocations = [] } = useQuery<GoalAllocation[]>({
+    queryKey: ["/api/goal-allocations"],
   });
 
   const addTransactionMutation = useMutation({
@@ -142,14 +145,25 @@ export default function Dashboard() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
 
-  const activeGoals = goals.filter(g => !g.isCompleted);
-  const averageGoalProgress = 0; // TODO: Update to use allocation system
-  // const averageGoalProgress = activeGoals.length > 0 
-  //   ? activeGoals.reduce((sum, goal) => {
-  //       const progress = (parseFloat(goal.currentAmount) / parseFloat(goal.targetAmount)) * 100;
-  //       return sum + Math.min(progress, 100);
-  //     }, 0) / activeGoals.length
-  //   : 0;
+  // Calculate goal statistics using allocations
+  const goalsWithAllocations = useMemo(() => {
+    return goals.map(goal => {
+      const allocations = goalAllocations.filter(allocation => allocation.goalId === goal.id);
+      const currentAmount = allocations.reduce((sum, allocation) => sum + parseFloat(allocation.amount), 0);
+      const progress = (currentAmount / parseFloat(goal.targetAmount)) * 100;
+      
+      return {
+        ...goal,
+        currentAmount,
+        progress: Math.min(progress, 100)
+      };
+    });
+  }, [goals, goalAllocations]);
+
+  const activeGoals = goalsWithAllocations.filter(g => !g.isCompleted);
+  const averageGoalProgress = activeGoals.length > 0 
+    ? activeGoals.reduce((sum, goal) => sum + goal.progress, 0) / activeGoals.length
+    : 0;
 
   const getCategoryName = (categoryId: number | null) => {
     if (!categoryId) return "Uncategorized";
@@ -354,7 +368,10 @@ export default function Dashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Savings Goals</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => setShowGoalForm(true)}>+ Add Goal</Button>
+            <div className="flex space-x-2">
+              <Button variant="ghost" size="sm" onClick={() => navigate("/goals")}>View All</Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowGoalForm(true)}>+ Add Goal</Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -362,9 +379,34 @@ export default function Dashboard() {
             {activeGoals.length === 0 ? (
               <p className="text-center text-gray-500 py-8">No active goals</p>
             ) : (
-              <div className="text-center text-gray-500 py-8">
-                <p>Goals functionality updated to use allocation system!</p>
-                <p className="text-sm">Visit the Goals page to allocate money to your goals.</p>
+              activeGoals.slice(0, 3).map((goal) => (
+                <div key={goal.id} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{goal.name}</h4>
+                      <p className="text-sm text-gray-500">{goal.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">
+                        {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+                      </p>
+                      <p className="text-sm text-gray-500">{Math.round(goal.progress)}% complete</p>
+                    </div>
+                  </div>
+                  <Progress value={goal.progress} className="h-2" />
+                  {goal.deadline && (
+                    <p className="text-xs text-gray-400">
+                      Target date: {formatDate(goal.deadline)}
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
+            {activeGoals.length > 3 && (
+              <div className="text-center pt-4">
+                <Button variant="ghost" size="sm" onClick={() => navigate("/goals")}>
+                  View {activeGoals.length - 3} more goals
+                </Button>
               </div>
             )}
           </div>
